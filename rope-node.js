@@ -2,7 +2,7 @@ var window = window || {}
 const Kite = window.Kite || require('kite.js').Kite
 
 const AUTO_RECONNECT = false
-const LOG_LEVEL = 6
+const LOG_LEVEL = Kite.DebugLevel.INFO
 const ENVIRONMENT = window.Kite ? 'browser-environment' : 'node-environment'
 const NAME = 'math'
 
@@ -17,7 +17,6 @@ const api = {
     })
   },
   identify: function(id, callback) {
-    // kite.emit('info', 'identify requested, doing now...', id)
     callback(null, { api: api, kiteInfo: kite.getKiteInfo() })
   },
   square: function(number, callback) {
@@ -35,5 +34,4 @@ var kite = new Kite({
   api: api,
 })
 
-// console.log(kite.api.methods)
 kite.connect()

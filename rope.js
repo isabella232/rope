@@ -1,8 +1,10 @@
-Kite = require('kite.js')
+kiteJS = require('kite.js')
+const Kite = kiteJS.Kite
+const KiteServer = kiteJS.KiteServer
 
 const connections = new Object()
 
-const LOG_LEVEL = 6
+const LOG_LEVEL = Kite.DebugLevel.INFO
 const AUTH = false
 
 function queryKite(args, callback) {
@@ -25,11 +27,11 @@ function runOnKite(options, callback) {
     })
 }
 
-const rope = new Kite.KiteServer({
+const rope = new KiteServer({
   name: 'rope',
   auth: AUTH,
   logLevel: LOG_LEVEL,
-  serverClass: Kite.KiteServer.transport.SockJS,
+  serverClass: KiteServer.transport.SockJS,
   api: {
     query: queryKite,
     run: runOnKite,
