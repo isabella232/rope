@@ -1,8 +1,10 @@
-Kite = require('kite.js')
+kiteJS = require('kite.js')
+const Kite = kiteJS.Kite
+const KiteServer = kiteJS.KiteServer
 
 const connections = new Object()
 
-const LOG_LEVEL = 4
+const LOG_LEVEL = Kite.DebugLevel.INFO
 const AUTH = false
 
 function queryKite(args, callback) {
@@ -25,11 +27,11 @@ function runOnKite(options, callback) {
     })
 }
 
-const rope = new Kite.KiteServer({
+const rope = new KiteServer({
   name: 'rope',
   auth: AUTH,
   logLevel: LOG_LEVEL,
-  serverClass: Kite.KiteServer.transport.SockJS,
+  serverClass: KiteServer.transport.SockJS,
   api: {
     query: queryKite,
     run: runOnKite,
@@ -41,49 +43,17 @@ function logConnectons() {
 }
 
 function registerConnection(connection) {
-  const id = connection.getId()
-  const mite = new Kite.Kite({
-    url: id,
-    name: 'remote',
-    logLevel: LOG_LEVEL,
-    autoConnect: false,
-  })
-
-  mite.ws = connection
-  mite.onOpen()
-
-  connection.removeAllListeners('message')
-
-  const proto = new Kite.DnodeProtocol(rope.api.methods)
-  proto.on('request', rope.lazyBound.call(rope, 'handleRequest', connection))
-
-  connection.on('message', function(_message) {
-    // rope.emit('info', 'got message from', id)
-    const message = JSON.parse(_message)
-    if (Object.keys(rope.api.methods).indexOf(message.method) > -1) {
-      rope.handleMessage.call(rope, proto, _message)
-    } else {
-      if (message.arguments.length >= 2) {
-        message.arguments = [
-          { error: message.arguments[0], result: message.arguments[1] },
-        ]
-        _message = JSON.stringify(message)
-      }
-      mite.onMessage({ data: _message })
-    }
-  })
-
-  mite.tell('identify', [id]).then(function(info) {
+  connection.kite.tell('identify', [connection.getId()]).then(function(info) {
     const kiteInfo = info.kiteInfo
     const kiteId = kiteInfo.id
     const api = info.api
 
     rope.emit('info', 'A new kite registered with ID of', kiteId)
-    mite.tell('identified', [kiteId])
+    connection.kite.tell('identified', [kiteId])
 
     connections[kiteId] = {
       kiteInfo: kiteInfo,
-      kite: mite,
+      kite: connection.kite,
       api: api,
     }
 
