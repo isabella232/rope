@@ -2,7 +2,7 @@ var window = window || {}
 const Kite = window.Kite || require('kite.js').Kite
 
 const AUTO_RECONNECT = false
-const LOG_LEVEL = 4
+const LOG_LEVEL = 6
 const ENVIRONMENT = window.Kite ? 'browser-environment' : 'node-environment'
 const NAME = 'math'
 
@@ -26,7 +26,8 @@ const api = {
 }
 
 var kite = new Kite({
-  url: 'ws://0.0.0.0:8080/websocket',
+  url: 'http://0.0.0.0:8080',
+  transportClass: Kite.transport.SockJS,
   name: NAME,
   logLevel: LOG_LEVEL,
   environment: ENVIRONMENT,
