@@ -12,7 +12,7 @@ const api = {
   identified: function(id) {
     kite.emit('info', 'Now identified with', id)
 
-    kite.tell('query', [null]).then(function(res) {
+    kite.tell('query').then(function(res) {
       kite.emit('info', 'following kites found on rope', (publicKites = res))
     })
   },

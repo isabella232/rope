@@ -4,10 +4,14 @@ const KiteServer = kiteJS.KiteServer
 
 const connections = new Object()
 
-const LOG_LEVEL = Kite.DebugLevel.INFO
+const LOG_LEVEL = Kite.DebugLevel.DEBUG
 const AUTH = false
 
 function queryKite(args, callback) {
+  if (!callback && typeof args == 'function') {
+    callback = args
+    args = null
+  }
   callback(null, Object.keys(connections))
 }
 
