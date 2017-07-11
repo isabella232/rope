@@ -2,7 +2,7 @@ kiteJS = require('kite.js')
 const Kite = kiteJS.Kite
 const KiteServer = kiteJS.KiteServer
 
-const connections = new Object()
+const connections = new Map()
 
 const LOG_LEVEL = Kite.DebugLevel.DEBUG
 const AUTH = false
@@ -10,9 +10,21 @@ const AUTH = false
 function queryKite(args, callback) {
   if (!callback && typeof args == 'function') {
     callback = args
-    args = null
   }
-  callback(null, Object.keys(connections))
+  args = args || {}
+
+  if (Object.keys(args).length) {
+    let res = []
+
+    for (let [kiteId, connection] of connections) {
+      if (args.method && connection.api.includes(args.method)) {
+        res.push(kiteId)
+      }
+    }
+    callback(null, res)
+  } else {
+    callback(null, Array.from(connections.keys()))
+  }
 }
 
 function runOnKite(options, callback) {
@@ -21,8 +33,9 @@ function runOnKite(options, callback) {
   const args = options.args || []
 
   // rope.emit('info', 'running on kite', kiteId, method)
-  connections[kiteId].kite
-    .tell(method, args)
+  connections
+    .get(kiteId)
+    .kite.tell(method, args)
     .then(function(res) {
       callback(null, res)
     })
@@ -43,7 +56,7 @@ const rope = new KiteServer({
 })
 
 function logConnectons() {
-  rope.emit('info', 'Connected kites are now:', Object.keys(connections))
+  rope.emit('info', 'Connected kites are now:', Array.from(connections.keys()))
 }
 
 function registerConnection(connection) {
@@ -55,15 +68,15 @@ function registerConnection(connection) {
     rope.emit('info', 'A new kite registered with ID of', kiteId)
     connection.kite.tell('identified', [kiteId])
 
-    connections[kiteId] = {
+    connections.set(kiteId, {
       kiteInfo: kiteInfo,
       kite: connection.kite,
       api: api,
-    }
+    })
 
     connection.on('close', function() {
       rope.emit('info', 'A kite left the facility :(', kiteId)
-      delete connections[kiteId]
+      connections.delete(kiteId)
       logConnectons()
     })
   })
