@@ -3,7 +3,7 @@ const Kite = window.Kite || require('kite.js').Kite
 
 const AUTO_RECONNECT = false
 const LOG_LEVEL = Kite.DebugLevel.INFO
-const ENVIRONMENT = window.Kite ? 'browser-environment' : 'node-environment'
+const ENVIRONMENT = window.Kite ? 'Browser' : 'Node.js'
 const NAME = 'math'
 
 var publicKites = []

@@ -6,11 +6,13 @@ import (
 
 func main() {
 	r := kite.New("dope", "0.0.0")
+	r.Config.Environment = "Go"
+
 	// r.SetLogLevel(kite.DEBUG)
-	// r.Config.DisableAuthentication = true
 
 	kiteURL := "ws://localhost:8080"
 	l := r.NewClient(kiteURL)
+	l.Reconnect = true
 
 	api := map[string]kite.HandlerFunc{
 		"square": func(req *kite.Request) (interface{}, error) {
@@ -19,17 +21,8 @@ func main() {
 			return result, nil
 		},
 		"identified": func(req *kite.Request) (interface{}, error) {
-			res, err := l.Tell("query", nil)
-			if err != nil {
-				panic(err)
-			}
-
-			var kites []string
-			if err := res.Unmarshal(&kites); err != nil {
-				panic(err)
-			}
-
-			r.Log.Info("Following Kites found on Rope: %v\n", kites)
+			kiteId := req.Args.One().MustString()
+			r.Log.Info("Identified as %v now!", kiteId)
 			return nil, nil
 		},
 	}
@@ -50,9 +43,11 @@ func main() {
 		}, nil
 	})
 
-	err := l.Dial()
+	connection, err := l.DialForever()
 	if err != nil {
 		r.Log.Fatal(err.Error())
 	}
+	<-connection
+
 	r.Run()
 }
