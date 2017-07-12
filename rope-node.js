@@ -12,12 +12,12 @@ const api = {
   identified: function(id) {
     kite.emit('info', 'Now identified with', id)
 
-    kite.tell('query').then(function(res) {
+    kite.tell('query', []).then(function(res) {
       kite.emit('info', 'following kites found on rope', (publicKites = res))
     })
   },
   identify: function(id, callback) {
-    callback(null, { api: api, kiteInfo: kite.getKiteInfo() })
+    callback(null, { api: Object.keys(api), kiteInfo: kite.getKiteInfo() })
   },
   square: function(number, callback) {
     callback(null, number * number)
