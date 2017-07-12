@@ -3,14 +3,18 @@ const Kite = kiteJS.Kite
 const KiteServer = kiteJS.KiteServer
 
 const connections = new Map()
+const events = new Map([['node.added', []], ['node.removed', []]])
 
 // const LOG_LEVEL = Kite.DebugLevel.INFO
 const LOG_LEVEL = Kite.DebugLevel.DEBUG
 const AUTH = false
 
-function queryKite(args, callback) {
+function debug(...message) {
+  rope.emit('debug', ...message)
+}
+
+function queryKite({ args, requester }, callback) {
   const method = args.method
-  const requester = args._requester
 
   if (method) {
     let res = []
@@ -27,20 +31,49 @@ function queryKite(args, callback) {
 }
 
 function runOnKite(options, callback) {
-  const kiteId = options.kiteId
-  const method = options.method
-  const args = options.args || []
+  const { kiteId, method, args = [] } = options.args
 
-  // rope.emit('info', 'running on kite', kiteId, method)
   connections
     .get(kiteId)
     .kite.tell(method, args)
-    .then(function(res) {
-      callback(null, res)
-    })
-    .catch(function(err) {
-      callback(err)
-    })
+    .then(res => callback(null, res))
+    .catch(err => callback(err))
+}
+
+function subscribe({ args: eventName, requester }, callback) {
+  const connection = connections.get(requester)
+  if (!connection || !connection.api.includes('notify'))
+    return callback({ message: 'Notifications not supported for this node' })
+
+  const event = events.get(eventName)
+  if (!event) return callback({ message: 'Event not supported!' })
+
+  event.push(requester)
+  events.set(eventName, event)
+
+  debug('events now', events.entries())
+  callback(null, `Now subscribed to ${eventName}`)
+}
+
+function unsubscribe({ args: eventName, requester }, callback) {
+  const connection = connections.get(requester)
+  if (!connection || !connection.api.includes('notify'))
+    return callback({ message: 'Notifications not supported for this node' })
+
+  const event = events.get(eventName)
+  if (!event) return callback({ message: 'Event not supported!' })
+
+  events.set(eventName, event.filter(kiteId => kiteId != requester))
+
+  debug('events now', events.entries())
+  callback(null, `Now ubsubscribed from ${eventName}`)
+}
+
+function unsubscribeFromAll(kiteId) {
+  for ([event, listeners] of events) {
+    events.set(event, listeners.filter(node => node != kiteId))
+  }
+  debug('events now', events.entries())
 }
 
 const rope = new KiteServer({
@@ -51,19 +84,21 @@ const rope = new KiteServer({
   api: {
     query: queryKite,
     run: runOnKite,
+    subscribe: subscribe,
+    unsubscribe: unsubscribe,
   },
 })
 
 rope.handleMessage = function(proto, message) {
   if ((kite = message.arguments[0].kite)) {
-    rope.emit('debug', `${kite.id} requested to run ${message.method}`)
-    args = message.arguments[0].withArgs
-    if (Array.isArray(args) && args.length == 0) {
-      args.push({ _requester: kite.id })
-    } else {
-      args._requester = kite.id
+    debug(`${kite.id} requested to run ${message.method}`)
+    if (!/^kite\./.test(message.method)) {
+      // do not touch internal methods
+      let args = message.arguments[0].withArgs || {}
+      message.arguments[0].withArgs = [{ args, requester: kite.id }]
     }
   }
+
   KiteServer.prototype.handleMessage.call(rope, proto, message)
 }
 
@@ -72,12 +107,11 @@ function logConnectons() {
 }
 
 function notifyNodes(notification = {}) {
-  let exclude = notification.exclude
-  delete notification.exclude
-  for (let [kiteId, connection] of connections) {
-    if (!connection.notify || kiteId == exclude) continue
-    connection.kite.tell('notify', notification)
-  }
+  const nodesToNotify = Array.from(events.get(notification.event) || [])
+
+  nodesToNotify.forEach(node => {
+    connections.get(node).kite.tell('notify', notification)
+  })
 }
 
 function registerConnection(connection) {
@@ -96,12 +130,13 @@ function registerConnection(connection) {
       notify: Array.from(api).includes('notify'),
     })
 
-    notifyNodes({ exclude: kiteId, type: 'node.added', node: { kiteId, api } })
+    notifyNodes({ event: 'node.added', node: { kiteId, api } })
 
     connection.on('close', function() {
       rope.emit('info', 'A kite left the facility :(', kiteId)
       connections.delete(kiteId)
-      notifyNodes({ type: 'node.removed', node: { kiteId } })
+      unsubscribeFromAll(kiteId)
+      notifyNodes({ event: 'node.removed', node: { kiteId } })
       logConnectons()
     })
   })
