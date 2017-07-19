@@ -17,3 +17,7 @@ And for running it;
 
  $ docker run -it --rm rope-go
 
+If you need to use a custom rope host;
+
+ $ docker run -e ROPEHOST=http://0.0.0.0:8080 -it --rm rope-go
+

@@ -1,6 +1,7 @@
 package main
 
 import (
+  "os"
 	"github.com/koding/kite"
 )
 
@@ -10,7 +11,10 @@ func main() {
 
 	// r.SetLogLevel(kite.DEBUG)
 
-	kiteURL := "http://ropez.oud.cc:4480"
+	kiteURL := os.Getenv("ROPEHOST")
+	if kiteURL == "" {
+		kiteURL = "http://rope.live:8080"
+	}
 	l := r.NewClient(kiteURL)
 	l.Reconnect = true
 

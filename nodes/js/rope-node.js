@@ -1,10 +1,16 @@
 var window = window || {}
 const Kite = window.Kite || require('kite.js').Kite
 
-const AUTO_RECONNECT = false
+const AUTO_RECONNECT = true 
 const LOG_LEVEL = Kite.DebugLevel.INFO
 const ENVIRONMENT = window.Kite ? 'Browser' : 'Node.js'
-const NAME = 'math'
+const NAME = 'rope-node-js'
+
+if (!!window.Kite) {
+  process = { env: {} }
+}
+
+const ROPEHOST = process.env.ROPEHOST || 'http://rope.live:8080'
 
 var publicKites = []
 
@@ -28,7 +34,7 @@ const api = {
 }
 
 var kite = new Kite({
-  url: 'http://ropez.oud.cc:4480',
+  url: ROPEHOST,
   transportClass: Kite.transport.SockJS,
   name: NAME,
   logLevel: LOG_LEVEL,

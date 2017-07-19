@@ -7,4 +7,5 @@ WORKDIR /go/src/rope-node
 RUN go get
 RUN go build
 
+ENV ROPEHOST http://rope.live:8080
 ENTRYPOINT ["/go/bin/rope-node"]
