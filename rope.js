@@ -1,4 +1,5 @@
 const { Kite, KiteServer } = require('kite.js')
+const uaParser = require('ua-parser-js')
 
 const connections = new Map()
 const events = new Map([['node.added', new Set()], ['node.removed', new Set()]])
@@ -150,19 +151,27 @@ function notifyNodes(event, kiteId) {
 function registerConnection(connection) {
   const connectionId = connection.getId()
   const { kite } = connection
+  const headers = connection.connection.headers
 
   kite.tell('identify', connectionId).then(function(info) {
-    const { kiteInfo, api = [] } = info
+    const { kiteInfo, useragent, api = [] } = info
     const { id: kiteId } = kiteInfo
 
     rope.emit('info', 'A new kite registered with ID of', kiteId)
-    kite.tell('identified', [kiteId])
+    const identifyData = { id: kiteId }
+    if (kiteInfo.environment == 'Browser' && useragent) {
+      let { browser } = uaParser(useragent)
+      let environment = `${browser.name} ${browser.version}`
+      kiteInfo.environment = identifyData.environment = environment
+    }
+    kite.tell('identified', [identifyData])
 
     const connectedFrom = connectionId
     connections.set(kiteId, {
       kiteInfo,
       api,
       kite,
+      headers,
       connectedFrom,
     })
 
