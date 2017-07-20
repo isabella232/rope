@@ -1,13 +1,14 @@
 package main
 
 import (
-  "os"
 	"github.com/koding/kite"
+	"os"
+	"runtime"
 )
 
 func main() {
 	r := kite.New("dope", "0.0.0")
-	r.Config.Environment = "Go"
+	r.Config.Environment = runtime.Version()
 
 	// r.SetLogLevel(kite.DEBUG)
 
@@ -25,8 +26,11 @@ func main() {
 			return result, nil
 		},
 		"identified": func(req *kite.Request) (interface{}, error) {
-			kiteId := req.Args.One().MustString()
-			r.Log.Info("Identified as %v now!", kiteId)
+			var args struct {
+				Id string `json:"id"`
+			}
+			req.Args.One().MustUnmarshal(&args)
+			r.Log.Info("Identified as %v now!", args.Id)
 			return nil, nil
 		},
 	}

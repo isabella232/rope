@@ -1,29 +1,31 @@
+// Check for browser
 var window = window || {}
+const inBrowser = !!window.Kite
+if (inBrowser) process = { env: { ROPEHOST: 'http://0.0.0.0:8080' } }
+
+// Get kite.js
 const Kite = window.Kite || require('kite.js').Kite
 
-const AUTO_RECONNECT = true 
+// Defaults for Kite instance
+const AUTO_RECONNECT = true
 const LOG_LEVEL = Kite.DebugLevel.INFO
-const ENVIRONMENT = window.Kite ? 'Browser' : 'Node.js'
 const NAME = 'rope-node-js'
+const ROPEHOST = process.env.ROPEHOST
+const ENVIRONMENT = inBrowser ? 'Browser' : 'Node.js ' + process.version
 
-if (!!window.Kite) {
-  process = { env: {} }
-}
-
-const ROPEHOST = process.env.ROPEHOST || 'http://rope.live:8080'
-
-var publicKites = []
-
+// The rope-node api
 const api = {
-  identified: function(id) {
-    kite.emit('info', 'Now identified with', id)
-
-    kite.tell('query').then(function(res) {
-      kite.emit('info', 'following kites found on rope', (publicKites = res))
-    })
+  identified: function(res) {
+    if (res.environment) {
+      kite.environment = res.environment
+    }
+    kite.emit('info', `Identified as ${res.id} now!`)
   },
   identify: function(id, callback) {
-    callback(null, { api: Object.keys(api), kiteInfo: kite.getKiteInfo() })
+    kite.emit('info', 'Identify requested!')
+    const kiteInfo = { api: Object.keys(api), kiteInfo: kite.getKiteInfo() }
+    if (inBrowser) kiteInfo.useragent = navigator.userAgent
+    callback(null, kiteInfo)
   },
   notify: function(notification) {
     console.log('Notification:', notification)
@@ -33,6 +35,7 @@ const api = {
   },
 }
 
+// Create the rope-node Kite instance
 var kite = new Kite({
   url: ROPEHOST,
   transportClass: Kite.transport.SockJS,
@@ -43,4 +46,5 @@ var kite = new Kite({
   api: api,
 })
 
+// Connect!
 kite.connect()
