@@ -10,11 +10,9 @@ func main() {
 	r := kite.New("dope", "0.0.0")
 	r.Config.Environment = runtime.Version()
 
-	// r.SetLogLevel(kite.DEBUG)
-
 	kiteURL := os.Getenv("ROPEHOST")
 	if kiteURL == "" {
-		kiteURL = "http://rope.live:8080"
+		kiteURL = "https://secure.rope.live"
 	}
 	l := r.NewClient(kiteURL)
 	l.Reconnect = true

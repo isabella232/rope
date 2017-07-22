@@ -1,7 +1,7 @@
 // Check for browser
 var window = window || {}
 const inBrowser = !!window.Kite
-if (inBrowser) process = { env: { ROPEHOST: 'http://0.0.0.0:8080' } }
+if (inBrowser) process = { env: { ROPEHOST: 'https://secure.rope.live' } }
 
 // Get kite.js
 const Kite = window.Kite || require('kite.js').Kite

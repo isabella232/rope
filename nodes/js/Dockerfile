@@ -3,5 +3,5 @@ FROM mhart/alpine-node:base-8
 WORKDIR .
 ADD . .
 
-ENV ROPEHOST http://rope.live:8080
+ENV ROPEHOST https://secure.rope.live
 CMD ["node", "rope-node.js"]

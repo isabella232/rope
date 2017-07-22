@@ -1,5 +1,5 @@
 FROM scratch
 ADD rope-node /
 
-ENV ROPEHOST http://rope.live:8080
+ENV ROPEHOST https://secure.rope.live
 CMD ["/rope-node"]
