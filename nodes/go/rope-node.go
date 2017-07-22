@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	r := kite.New("dope", "0.0.0")
+	r := kite.New("rope-node-go", "0.0.0")
 	r.Config.Environment = runtime.Version()
 
 	kiteURL := os.Getenv("ROPEHOST")
