@@ -21,7 +21,7 @@ resource:
         curl --silent --location https://get.docker.com/ | sh
 
         # Then run rope on 80
-        docker run --restart=always -d -p80:8080 gokmen/rope
+        docker run --restart=always -d -p80:8080 --name rope gokmen/rope
 
     rope-webserver:
       instance_type: 't2.nano'
@@ -32,11 +32,11 @@ resource:
         curl --silent --location https://get.docker.com/ | sh
 
         # Run sample nodes in Node.js and Go
-        docker run --restart=always -d gokmen/rope-node-go
-        docker run --restart=always -d gokmen/rope-node-js
+        docker run --restart=always -d --name rope-node-go gokmen/rope-node-go
+        docker run --restart=always -d --name rope-node-js gokmen/rope-node-js
 
         # Run rope-home to serve rope homepage
-        docker run --restart=always -p80:80 -d gokmen/rope-home
+        docker run --restart=always -p80:80 -d --name rope-home gokmen/rope-home
 
   aws_eip:
     rope-server:
