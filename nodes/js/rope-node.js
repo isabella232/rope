@@ -2,14 +2,14 @@ const ROPELIVE = 'https://secure.rope.live'
 // Check for browser
 var window = window || {}
 const inBrowser = !!window.Kite
-if (inBrowser) process = { env: { ROPEHOST: ROPELIVE } }
+if (inBrowser) process = { env: { ROPEHOST: ROPELIVE, ROPEDEBUG: Kite.DebugLevel.INFO } }
 
 // Get kite.js
 const Kite = window.Kite || require('kite.js').Kite
 
 // Defaults for Kite instance
 const AUTO_RECONNECT = true
-const LOG_LEVEL = Kite.DebugLevel.INFO
+const LOG_LEVEL = process.env.ROPEDEBUG || Kite.DebugLevel.INFO
 const NAME = 'rope-node-js'
 const ROPEHOST = process.env.ROPEHOST || ROPELIVE
 const ENVIRONMENT = inBrowser ? 'Browser' : 'Node.js ' + process.version
