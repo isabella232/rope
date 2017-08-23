@@ -50,7 +50,7 @@ function runOnKite(options, callback) {
 
 function getConnection(requester) {
   const connection = connections.get(requester)
-  if (!connection || !connection.api.includes('notify'))
+  if (!connection || !connection.api.includes('rope.notify'))
     return [{ message: 'Notifications not supported for this node' }]
   return [null, connection]
 }
@@ -144,7 +144,7 @@ function notifyNodes(event, kiteId) {
   kiteInfo.event = event
 
   for (let node of events.get(event)) {
-    connections.get(node).kite.tell('notify', kiteInfo)
+    connections.get(node).kite.tell('rope.notify', kiteInfo)
   }
 }
 
@@ -153,7 +153,7 @@ function registerConnection(connection) {
   const { kite } = connection
   const headers = connection.connection.headers
 
-  kite.tell('identify', connectionId).then(function(info) {
+  kite.tell('rope.identify', connectionId).then(function(info) {
     const { kiteInfo, useragent, api = [] } = info
     const { id: kiteId } = kiteInfo
 
@@ -164,7 +164,7 @@ function registerConnection(connection) {
       let environment = `${browser.name} ${browser.version}`
       kiteInfo.environment = identifyData.environment = environment
     }
-    kite.tell('identified', [identifyData])
+    kite.tell('rope.identified', [identifyData])
 
     const connectedFrom = connectionId
     connections.set(kiteId, {

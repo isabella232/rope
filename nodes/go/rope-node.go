@@ -23,7 +23,7 @@ func main() {
 			result := number * number
 			return result, nil
 		},
-		"identified": func(req *kite.Request) (interface{}, error) {
+		"rope.identified": func(req *kite.Request) (interface{}, error) {
 			var args struct {
 				Id string `json:"id"`
 			}
@@ -37,7 +37,7 @@ func main() {
 		r.HandleFunc(method, f)
 	}
 
-	r.HandleFunc("identify", func(req *kite.Request) (interface{}, error) {
+	r.HandleFunc("rope.identify", func(req *kite.Request) (interface{}, error) {
 		r.Log.Info("Identify requested!")
 		funcs := make([]string, 0, len(api))
 		for method := range api {
