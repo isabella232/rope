@@ -1,5 +1,6 @@
 const readline = require('readline')
 const MAX_QUERY_LIMIT = 20
+const BLACKLIST_LIMIT = 10
 
 const { Kite, KiteServer } = require('kite.js')
 const uaParser = require('ua-parser-js')
@@ -162,46 +163,69 @@ function notifyNodes(event, kiteId) {
   }
 }
 
+const blackListCandidates = new Object()
+const blackList = new Set()
+
 function registerConnection(connection) {
+  const headers = connection.connection.headers
+  const remoteIp = headers['x-forwarded-for']
+
+  if (blackList.has(remoteIp)) {
+    connection.close()
+    return
+  }
+
   const connectionId = connection.getId()
   const { kite } = connection
-  const headers = connection.connection.headers
 
-  kite.tell('rope.identify', connectionId).then(function(info) {
-    const { kiteInfo, useragent, api = [] } = info
-    const { id: kiteId } = kiteInfo
+  kite
+    .tell('rope.identify', connectionId)
+    .then(function(info) {
+      const { kiteInfo, useragent, api = [] } = info
+      const { id: kiteId } = kiteInfo
 
-    rope.emit('info', 'A new kite registered with ID of', kiteId)
-    const identifyData = { id: kiteId }
-    if (kiteInfo.environment == 'Browser' && useragent) {
-      let { browser } = uaParser(useragent)
-      let environment = `${browser.name} ${browser.version}`
-      kiteInfo.environment = identifyData.environment = environment
-    }
-    kite.tell('rope.identified', [identifyData])
+      rope.emit('info', 'A new kite registered with ID of', kiteId)
+      const identifyData = { id: kiteId }
+      if (kiteInfo.environment == 'Browser' && useragent) {
+        let { browser } = uaParser(useragent)
+        let environment = `${browser.name} ${browser.version}`
+        kiteInfo.environment = identifyData.environment = environment
+      }
+      kite.tell('rope.identified', [identifyData])
 
-    const connectedFrom = connectionId
-    connections.set(kiteId, {
-      kiteInfo,
-      api,
-      kite,
-      headers,
-      connectedFrom,
-    })
+      const connectedFrom = remoteIp
+      connections.set(kiteId, {
+        kiteInfo,
+        api,
+        kite,
+        headers,
+        connectedFrom,
+      })
 
-    notifyNodes('node.added', kiteId)
-    logConnectons()
-
-    connection.on('close', function() {
-      rope.emit('info', 'A kite left the facility :(', kiteId)
-      connections.delete(kiteId)
-      unsubscribeFromAll(kiteId)
-      notifyNodes('node.removed', kiteId)
+      notifyNodes('node.added', kiteId)
       logConnectons()
+
+      connection.on('close', function() {
+        rope.emit('info', 'A kite left the facility :(', kiteId)
+        connections.delete(kiteId)
+        unsubscribeFromAll(kiteId)
+        notifyNodes('node.removed', kiteId)
+        logConnectons()
+      })
+      return info
     })
-  })
+    .catch(err => {
+      rope.emit('info', 'Dropping outdated kite', connectionId, remoteIp)
+      blackListCandidates[remoteIp] |= 0
+      blackListCandidates[remoteIp]++
+      if (blackListCandidates[remoteIp] > BLACKLIST_LIMIT) {
+        console.log(`Connections from ${remoteIp} blacklisted`)
+        blackList.add(remoteIp)
+      }
+      connection.close()
+    })
 }
 
-rope.listen(8080)
+rope.listen(80)
 rope.server.on('connection', registerConnection)
 logConnectons()
