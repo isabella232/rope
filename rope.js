@@ -1,11 +1,13 @@
+const readline = require('readline')
+const MAX_QUERY_LIMIT = 20
+
 const { Kite, KiteServer } = require('kite.js')
 const uaParser = require('ua-parser-js')
 
 const connections = new Map()
 const events = new Map([['node.added', new Set()], ['node.removed', new Set()]])
 
-const LOG_LEVEL = Kite.DebugLevel.INFO
-// const LOG_LEVEL = Kite.DebugLevel.DEBUG
+const LOG_LEVEL = process.env.KITEDEBUG || 0
 const AUTH = false
 
 function debug(...message) {
@@ -30,12 +32,18 @@ function queryKite({ args, requester }, callback) {
       if (connection.api.includes(method)) {
         res.push(kiteId)
       }
+      if (res.length >= MAX_QUERY_LIMIT) break
     }
   } else {
-    res = Array.from(connections.keys())
+    res = Array.from(connections.keys()).slice(0, MAX_QUERY_LIMIT)
+    if (res.indexOf(requester) < 0) res[0] = requester
   }
 
   callback(null, res.map(getKiteInfo))
+}
+
+function getKiteCount(options, callback) {
+  callback(null, connections.size)
 }
 
 function runOnKite(options, callback) {
@@ -116,6 +124,7 @@ const rope = new KiteServer({
   serverClass: KiteServer.transport.SockJS,
   api: {
     query: queryKite,
+    count: getKiteCount,
     run: runOnKite,
     subscribe: subscribe,
     unsubscribe: unsubscribe,
@@ -136,15 +145,20 @@ rope.handleMessage = function(proto, message) {
 }
 
 function logConnectons() {
-  rope.emit('info', 'Connected kites are now:', Array.from(connections.keys()))
+  if (LOG_LEVEL == 0) {
+    process.stdout.write(`\rConnected kites ${connections.size}   `)
+    readline.cursorTo(process.stdout, 0)
+  } else {
+    rope.emit('info', 'Connected kites', connections.size)
+  }
 }
 
 function notifyNodes(event, kiteId) {
   const kiteInfo = getKiteInfo(kiteId)
-  kiteInfo.event = event
+  notification = { event, kiteInfo }
 
   for (let node of events.get(event)) {
-    connections.get(node).kite.tell('rope.notify', kiteInfo)
+    connections.get(node).kite.tell('rope.notify', notification)
   }
 }
 
@@ -176,6 +190,7 @@ function registerConnection(connection) {
     })
 
     notifyNodes('node.added', kiteId)
+    logConnectons()
 
     connection.on('close', function() {
       rope.emit('info', 'A kite left the facility :(', kiteId)
@@ -189,3 +204,4 @@ function registerConnection(connection) {
 
 rope.listen(8080)
 rope.server.on('connection', registerConnection)
+logConnectons()
