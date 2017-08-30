@@ -20,8 +20,8 @@ function getKiteInfo(kiteId) {
   if (!connection) {
     return { id: kiteId }
   }
-  const { api, connectedFrom, kiteInfo } = connection
-  return { id: kiteId, api, connectedFrom, kiteInfo }
+  const { api, signatures, connectedFrom, kiteInfo } = connection
+  return { id: kiteId, api, signatures, connectedFrom, kiteInfo }
 }
 
 function queryKite({ args, requester }, callback) {
@@ -181,7 +181,7 @@ function registerConnection(connection) {
   kite
     .tell('rope.identify', connectionId)
     .then(function(info) {
-      const { kiteInfo, useragent, api = [] } = info
+      const { kiteInfo, useragent, api = [], signatures = {} } = info
       const { id: kiteId } = kiteInfo
 
       rope.emit('info', 'A new kite registered with ID of', kiteId)
@@ -199,6 +199,7 @@ function registerConnection(connection) {
         api,
         kite,
         headers,
+        signatures,
         connectedFrom,
       })
 

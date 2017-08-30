@@ -46,6 +46,9 @@ func main() {
 		return map[string]interface{}{
 			"kiteInfo": r.Kite(),
 			"api":      funcs,
+			"signatures": map[string]interface{}{
+				"square": "Number, Function",
+			},
 		}, nil
 	})
 

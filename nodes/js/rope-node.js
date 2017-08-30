@@ -25,7 +25,13 @@ const api = {
   },
   'rope.identify': function(id, callback) {
     kite.emit('info', 'Identify requested!')
-    const kiteInfo = { api: Object.keys(api), kiteInfo: kite.getKiteInfo() }
+    const kiteInfo = {
+      api: Object.keys(api),
+      kiteInfo: kite.getKiteInfo(),
+      signatures: {
+        square: 'Number, Function',
+      },
+    }
     if (inBrowser) kiteInfo.useragent = navigator.userAgent
     callback(null, kiteInfo)
   },
