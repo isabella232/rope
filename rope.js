@@ -1,5 +1,5 @@
 const readline = require('readline')
-const MAX_QUERY_LIMIT = 20
+const MAX_QUERY_LIMIT = 200
 const BLACKLIST_LIMIT = 10
 
 const { Kite, KiteServer } = require('kite.js')
