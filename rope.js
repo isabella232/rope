@@ -133,7 +133,7 @@ const rope = new KiteServer({
 })
 
 rope.handleMessage = function(proto, message) {
-  if ((kite = message.arguments[0].kite)) {
+  if (message.arguments[0] && (kite = message.arguments[0].kite)) {
     debug(`${kite.id} requested to run ${message.method}`)
     if (!/^kite\./.test(message.method)) {
       // do not touch internal methods
