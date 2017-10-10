@@ -11,6 +11,8 @@ const events = new Map([['node.added', new Set()], ['node.removed', new Set()]])
 const LOG_LEVEL = process.env.KITEDEBUG || 0
 const AUTH = false
 
+class Server {}
+
 function debug(...message) {
   rope.emit('debug', ...message)
 }
@@ -227,6 +229,10 @@ function registerConnection(connection) {
     })
 }
 
-rope.listen(80)
-rope.server.on('connection', registerConnection)
-logConnectons()
+// rope.listen(80)
+// rope.server.on('connection', registerConnection)
+// logConnectons()
+
+export default {
+  Server,
+}

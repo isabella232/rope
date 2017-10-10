@@ -1,0 +1,13 @@
+*.log
+/.*/
+/coverage/
+/docs/
+/nodes/
+/examples/
+/test/
+/.eslint*
+/.flowconfig
+/.gitignore
+/.npmignore
+/.travis.yml
+/src
