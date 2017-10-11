@@ -4,8 +4,24 @@
   "description": "rope: registry for public kites",
   "main": "rope.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node rope.js"
+    "clean": "rm -rf ./lib",
+    "start": "babel-node src/run.js",
+    "test": "jest src",
+    "test:watch": "npm test -- --watch",
+    "lint": "eslint .",
+    "prebuild": "npm run clean",
+    "build": "babel src --out-dir lib --ignore test.js",
+    "build:watch": "babel src --watch --out-dir lib --ignore test.js"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-core": "^6.24.1",
+    "babel-jest": "^21.2.0",
+    "babel-preset-env": "^1.6.0",
+    "jest": "^21.2.1"
+  },
+  "directories": {
+    "test": "test"
   },
   "repository": {
     "type": "git",
@@ -19,7 +35,7 @@
   "author": "Gokmen Goksel",
   "license": "MIT",
   "dependencies": {
-    "kite.js": "^1.0.9",
+    "kite.js": "^1.0.10",
     "ua-parser-js": "^0.7.14"
   }
 }
