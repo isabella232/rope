@@ -5,6 +5,7 @@
   "main": "rope.js",
   "scripts": {
     "clean": "rm -rf ./lib",
+    "start": "babel-node src/run.js",
     "test": "jest src",
     "test:watch": "npm test -- --watch",
     "lint": "eslint .",
