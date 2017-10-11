@@ -1,238 +1,255 @@
-const readline = require('readline')
-const MAX_QUERY_LIMIT = 200
-const BLACKLIST_LIMIT = 10
+import {
+  PORT,
+  MAX_QUERY_LIMIT,
+  BLACKLIST_LIMIT,
+  LOG_LEVEL,
+  AUTH,
+} from './constants'
 
-const { Kite, KiteServer } = require('kite.js')
-const uaParser = require('ua-parser-js')
+import { Kite, KiteServer, KiteApi } from 'kite.js'
+import readline from 'readline'
+import uaParser from 'ua-parser-js'
 
-const connections = new Map()
-const events = new Map([['node.added', new Set()], ['node.removed', new Set()]])
-
-const LOG_LEVEL = process.env.KITEDEBUG || 0
-const AUTH = false
-
-class Server {}
-
-function debug(...message) {
-  rope.emit('debug', ...message)
-}
-
-function getKiteInfo(kiteId) {
-  const connection = connections.get(kiteId)
-  if (!connection) {
-    return { id: kiteId }
-  }
-  const { api, signatures, connectedFrom, kiteInfo } = connection
-  return { id: kiteId, api, signatures, connectedFrom, kiteInfo }
-}
-
-function queryKite({ args, requester }, callback) {
-  const method = args.method
-
-  let res = []
-  if (method) {
-    for (let [kiteId, connection] of connections) {
-      if (connection.api.includes(method)) {
-        res.push(kiteId)
-      }
-      if (res.length >= MAX_QUERY_LIMIT) break
-    }
-  } else {
-    res = Array.from(connections.keys()).slice(0, MAX_QUERY_LIMIT)
-    if (res.indexOf(requester) < 0) res[0] = requester
-  }
-
-  callback(null, res.map(getKiteInfo))
-}
-
-function getKiteCount(options, callback) {
-  callback(null, connections.size)
-}
-
-function runOnKite(options, callback) {
-  const { kiteId, method, args = [] } = options.args
-
-  connections
-    .get(kiteId)
-    .kite.tell(method, args)
-    .then(res => callback(null, res))
-    .catch(err => callback(err))
-}
-
-function getConnection(requester) {
-  const connection = connections.get(requester)
-  if (!connection || !connection.api.includes('rope.notify'))
-    return [{ message: 'Notifications not supported for this node' }]
-  return [null, connection]
-}
-
-function getSubscribers(eventName) {
-  const subscribers = events.get(eventName)
-  if (!subscribers) return [{ message: 'Event not supported!' }]
-  return [null, subscribers]
-}
-
-function handleSubscription({ requester, eventName, message, subscribe }) {
-  var [err, connection] = getConnection(requester)
-  if (err) return [err]
-
-  var [err, subscribers] = getSubscribers(eventName)
-  if (err) return [err]
-
-  if (subscribe) subscribers.add(requester)
-  else subscribers.delete(requester)
-
-  events.set(eventName, subscribers)
-
-  debug('events now', events.entries())
-  return [null, message]
-}
-
-function subscribe({ args: eventName, requester }, callback) {
-  callback.apply(
-    this,
-    handleSubscription({
-      eventName,
-      requester,
-      subscribe: true,
-      message: `Now subscribed to ${eventName}`,
+export default class Server extends KiteServer {
+  constructor(options = {}) {
+    super({
+      name: 'rope',
+      logLevel: LOG_LEVEL,
+      serverClass: KiteServer.transport.SockJS,
     })
-  )
-}
 
-function unsubscribe({ args: eventName, requester }, callback) {
-  callback.apply(
-    this,
-    handleSubscription({
-      eventName,
-      requester,
-      subscribe: false,
-      message: `Now ubsubscribed from ${eventName}`,
-    })
-  )
-}
+    this.setApi(
+      new KiteApi({
+        auth: AUTH,
+        methods: {
+          query: this.bound('queryKite'),
+          count: this.bound('getKiteCount'),
+          run: this.bound('runOnKite'),
+          subscribe: this.bound('subscribe'),
+          unsubscribe: this.bound('unsubscribe'),
+        },
+      })
+    )
 
-function unsubscribeFromAll(kiteId) {
-  for ([event, subscribers] of events) {
-    subscribers.delete(kiteId)
-    events.set(event, subscribers)
+    this.connections = new Map()
+    this.events = new Map([
+      ['node.added', new Set()],
+      ['node.removed', new Set()],
+    ])
+
+    this.blackListCandidates = new Object()
+    this.blackList = new Set()
   }
-  debug('events now', events.entries())
-}
 
-const rope = new KiteServer({
-  name: 'rope',
-  auth: AUTH,
-  logLevel: LOG_LEVEL,
-  serverClass: KiteServer.transport.SockJS,
-  api: {
-    query: queryKite,
-    count: getKiteCount,
-    run: runOnKite,
-    subscribe: subscribe,
-    unsubscribe: unsubscribe,
-  },
-})
-
-rope.handleMessage = function(proto, message) {
-  if (message.arguments[0] && (kite = message.arguments[0].kite)) {
-    debug(`${kite.id} requested to run ${message.method}`)
-    if (!/^kite\./.test(message.method)) {
+  handleMessage(proto, message) {
+    let kite
+    if (message.arguments[0] && (kite = message.arguments[0].kite)) {
+      this.logger.debug(`${kite.id} requested to run ${message.method}`)
+      this.logger.debug(proto)
       // do not touch internal methods
-      let args = message.arguments[0].withArgs || {}
-      message.arguments[0].withArgs = [{ args, requester: kite.id }]
+      if (!/^kite\./.test(message.method)) {
+        let args = message.arguments[0].withArgs || {}
+        message.arguments[0].withArgs = [{ args, requester: kite.id }]
+      }
+    }
+
+    super.handleMessage(proto, message)
+  }
+
+  listen(port = PORT) {
+    super.listen(port)
+    this.server.on('connection', this.bound('registerConnection'))
+    this.logConnectons()
+  }
+
+  getKiteInfo(kiteId) {
+    let connection = this.connections.get(kiteId)
+
+    if (!connection) {
+      return { id: kiteId }
+    }
+
+    let { api, signatures, connectedFrom, kiteInfo } = connection
+    return { id: kiteId, api, signatures, connectedFrom, kiteInfo }
+  }
+
+  queryKite({ args, requester }, callback) {
+    const method = args.method
+    let res = []
+
+    if (method) {
+      for (let [kiteId, connection] of this.connections) {
+        if (connection.api.includes(method)) {
+          res.push(kiteId)
+        }
+        if (res.length >= MAX_QUERY_LIMIT) break
+      }
+    } else {
+      res = Array.from(this.connections.keys()).slice(0, MAX_QUERY_LIMIT)
+      if (res.indexOf(requester) < 0) res[0] = requester
+    }
+
+    callback(null, res.map(this.bound('getKiteInfo')))
+  }
+
+  getKiteCount(options, callback) {
+    callback(null, this.connections.size)
+  }
+
+  runOnKite(options, callback) {
+    const { kiteId, method, args = [] } = options.args
+
+    this.connections
+      .get(kiteId)
+      .kite.tell(method, args)
+      .then(res => callback(null, res))
+      .catch(err => callback(err))
+  }
+
+  getConnection(requester) {
+    const connection = this.connections.get(requester)
+    if (!connection || !connection.api.includes('rope.notify'))
+      return [{ message: 'Notifications not supported for this node' }]
+    return [null, connection]
+  }
+
+  getSubscribers(eventName) {
+    const subscribers = this.events.get(eventName)
+    if (!subscribers) return [{ message: 'Event not supported!' }]
+    return [null, subscribers]
+  }
+
+  handleSubscription({ requester, eventName, message, subscribe }) {
+    var [err, connection] = this.getConnection(requester)
+    if (err) return [err]
+
+    var [err, subscribers] = this.getSubscribers(eventName)
+    if (err) return [err]
+
+    if (subscribe) subscribers.add(requester)
+    else subscribers.delete(requester)
+
+    this.events.set(eventName, subscribers)
+
+    this.logger.debug('events now', this.events.entries())
+    return [null, message]
+  }
+
+  subscribe({ args: eventName, requester }, callback) {
+    callback.apply(
+      this,
+      this.handleSubscription({
+        eventName,
+        requester,
+        subscribe: true,
+        message: `Now subscribed to ${eventName}`,
+      })
+    )
+  }
+
+  unsubscribe({ args: eventName, requester }, callback) {
+    callback.apply(
+      this,
+      this.handleSubscription({
+        eventName,
+        requester,
+        subscribe: false,
+        message: `Now ubsubscribed from ${eventName}`,
+      })
+    )
+  }
+
+  unsubscribeFromAll(kiteId) {
+    let event, subscribers
+    for ([event, subscribers] of this.events) {
+      subscribers.delete(kiteId)
+      this.events.set(event, subscribers)
+    }
+    this.logger.debug('events now', this.events.entries())
+  }
+
+  logConnectons() {
+    if (LOG_LEVEL == 0) {
+      process.stdout.write(`\rConnected kites ${this.connections.size}   `)
+      readline.cursorTo(process.stdout, 0)
+    } else {
+      this.logger.info('Connected kites', this.connections.size)
     }
   }
 
-  KiteServer.prototype.handleMessage.call(rope, proto, message)
-}
+  notifyNodes(event, kiteId) {
+    const kiteInfo = this.getKiteInfo(kiteId)
+    const notification = { event, kiteInfo }
 
-function logConnectons() {
-  if (LOG_LEVEL == 0) {
-    process.stdout.write(`\rConnected kites ${connections.size}   `)
-    readline.cursorTo(process.stdout, 0)
-  } else {
-    rope.emit('info', 'Connected kites', connections.size)
-  }
-}
+    this.logger.info('notifying', this.events.get(event))
 
-function notifyNodes(event, kiteId) {
-  const kiteInfo = getKiteInfo(kiteId)
-  notification = { event, kiteInfo }
-
-  for (let node of events.get(event)) {
-    connections.get(node).kite.tell('rope.notify', notification)
-  }
-}
-
-const blackListCandidates = new Object()
-const blackList = new Set()
-
-function registerConnection(connection) {
-  const headers = connection.connection.headers
-  const remoteIp = headers['x-forwarded-for']
-
-  if (blackList.has(remoteIp)) {
-    connection.close()
-    return
+    for (let node of this.events.get(event)) {
+      this.connections.get(node).kite.tell('rope.notify', notification)
+    }
   }
 
-  const connectionId = connection.getId()
-  const { kite } = connection
+  registerConnection(connection) {
+    const headers = connection.connection.headers
+    const remoteIp =
+      headers['x-forwarded-for'] || connection.connection.remoteAddress
 
-  kite
-    .tell('rope.identify', connectionId)
-    .then(function(info) {
-      const { kiteInfo, useragent, api = [], signatures = {} } = info
-      const { id: kiteId } = kiteInfo
-
-      rope.emit('info', 'A new kite registered with ID of', kiteId)
-      const identifyData = { id: kiteId }
-      if (kiteInfo.environment == 'Browser' && useragent) {
-        let { browser } = uaParser(useragent)
-        let environment = `${browser.name} ${browser.version}`
-        kiteInfo.environment = identifyData.environment = environment
-      }
-      kite.tell('rope.identified', [identifyData])
-
-      const connectedFrom = remoteIp
-      connections.set(kiteId, {
-        kiteInfo,
-        api,
-        kite,
-        headers,
-        signatures,
-        connectedFrom,
-      })
-
-      notifyNodes('node.added', kiteId)
-      logConnectons()
-
-      connection.on('close', function() {
-        rope.emit('info', 'A kite left the facility :(', kiteId)
-        connections.delete(kiteId)
-        unsubscribeFromAll(kiteId)
-        notifyNodes('node.removed', kiteId)
-        logConnectons()
-      })
-      return info
-    })
-    .catch(err => {
-      rope.emit('info', 'Dropping outdated kite', connectionId, remoteIp)
-      blackListCandidates[remoteIp] |= 0
-      blackListCandidates[remoteIp]++
-      if (blackListCandidates[remoteIp] > BLACKLIST_LIMIT) {
-        console.log(`Connections from ${remoteIp} blacklisted`)
-        blackList.add(remoteIp)
-      }
+    if (this.blackList.has(remoteIp)) {
+      this.logger.debug('connection request from blacklisted ip', remoteIp)
       connection.close()
-    })
-}
+      return
+    }
 
-// rope.listen(80)
-// rope.server.on('connection', registerConnection)
-// logConnectons()
+    const connectionId = connection.getId()
+    const { kite } = connection
 
-export default {
-  Server,
+    kite
+      .tell('rope.identify', connectionId)
+      .then(info => {
+        this.logger.debug('kiteinfo', info)
+        const { kiteInfo, useragent, api = [], signatures = {} } = info
+        const { id: kiteId } = kiteInfo
+
+        this.logger.info('A new kite registered with ID of', kiteId)
+
+        const identifyData = { id: kiteId }
+        if (kiteInfo.environment == 'Browser' && useragent) {
+          let { browser } = uaParser(useragent)
+          let environment = `${browser.name} ${browser.version}`
+          kiteInfo.environment = identifyData.environment = environment
+        }
+        kite.tell('rope.identified', [identifyData])
+
+        this.connections.set(kiteId, {
+          api,
+          kite,
+          headers,
+          kiteInfo,
+          signatures,
+          connectedFrom: remoteIp,
+        })
+
+        this.notifyNodes('node.added', kiteId)
+        this.logConnectons()
+
+        connection.on('close', () => {
+          this.logger.info('A kite left the facility :(', kiteId)
+          this.connections.delete(kiteId)
+          this.unsubscribeFromAll(kiteId)
+          this.notifyNodes('node.removed', kiteId)
+          this.logConnectons()
+        })
+        return info
+      })
+      .catch(err => {
+        this.logger.error('Error while register connection', err)
+        this.logger.info('Dropping outdated kite', connectionId, remoteIp)
+        this.blackListCandidates[remoteIp] |= 0
+        this.blackListCandidates[remoteIp]++
+        if (this.blackListCandidates[remoteIp] > BLACKLIST_LIMIT) {
+          console.log(`Connections from ${remoteIp} blacklisted`)
+          this.blackList.add(remoteIp)
+        }
+        connection.close()
+      })
+  }
 }
