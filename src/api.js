@@ -145,7 +145,7 @@ export default class RopeApi {
     return [null, connection]
   }
 
-  logConnectons() {
+  logConnections() {
     if (LOG_LEVEL == 0) {
       process.stdout.write(`\rConnected kites ${this.ctx.connections.size}   `)
       readline.cursorTo(process.stdout, 0)

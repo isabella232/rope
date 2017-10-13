@@ -46,7 +46,7 @@ export default class Server extends KiteServer {
   listen(port = PORT) {
     super.listen(port)
     this.server.on('connection', this.bound('registerConnection'))
-    this.ropeApi.logConnectons()
+    this.ropeApi.logConnections()
   }
 
   registerConnection(connection) {
@@ -90,14 +90,14 @@ export default class Server extends KiteServer {
         })
 
         this.ropeApi.notifyNodes('node.added', kiteId)
-        this.ropeApi.logConnectons()
+        this.ropeApi.logConnections()
 
         connection.on('close', () => {
           this.logger.info('A kite left the facility :(', kiteId)
           this.ctx.connections.delete(kiteId)
           this.ropeApi.unsubscribeFromAll(kiteId)
           this.ropeApi.notifyNodes('node.removed', kiteId)
-          this.ropeApi.logConnectons()
+          this.ropeApi.logConnections()
         })
         return info
       })
