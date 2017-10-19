@@ -50,7 +50,7 @@ export default class Server extends KiteServer {
   }
 
   registerConnection(connection) {
-    const headers = connection.connection.headers
+    const headers = connection.connection.headers || {}
     const remoteIp =
       headers['x-forwarded-for'] || connection.connection.remoteAddress
 

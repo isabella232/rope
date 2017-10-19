@@ -1,2 +1,4 @@
 import RopeServer from './server'
-new RopeServer().listen()
+
+let port = process.env['ROPE_PORT']
+new RopeServer().listen(port)
