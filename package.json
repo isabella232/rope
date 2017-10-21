@@ -36,7 +36,7 @@
   "author": "Gokmen Goksel",
   "license": "MIT",
   "dependencies": {
-    "kite.js": "^1.0.10",
+    "kite.js": "^1.0.11",
     "ua-parser-js": "^0.7.14"
   }
 }
